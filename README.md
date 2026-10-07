@@ -11,7 +11,6 @@
 | Om Patel | AI/ML Lead, Full-Stack |
 | Awais | Data Engineering, Backend |
 | Abhinav | Backend / Systems |
-| Kumar Managalam | Role pending |
 
 ## Project
 Selected idea: **ClawCompass**, a paid capability broker for autonomous agents.
