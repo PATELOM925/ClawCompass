@@ -1,136 +1,102 @@
-# OpenClaw Hackathon (TTW26)
+# ClawCompass
 
-## Event
-- **Hackathon**: OpenClaw Hackathon (Toronto Tech Week)
-- **Format**: Hackathon
-- **Constraint**: Must use OpenClaw host's frameworks/tools to build the solution
+**A capability broker for autonomous agents.** An agent describes its task; ClawCompass picks the right skill, MCP server, plugin or sub-agent, strips secrets from the context, and holds risky or paid actions until a human approves.
+
+Built at the OpenClaw Hack (Toronto Tech Week), 26 May 2026, Toronto Metropolitan University.
+
+## Why it exists
+
+Agent builders lose time choosing and trusting tools. The number of skills, plugins, MCP servers and sub-agents keeps growing, and an agent that picks the wrong one can leak a secret or spend money without permission. ClawCompass puts one broker between the agent and its tools.
+
+## What it does
+
+| Step | What happens |
+|---|---|
+| Analyse | Classifies the task, budget and risk tolerance with an LLM, with a deterministic fallback when no API key is set |
+| Redact | Removes 10 kinds of secrets (API keys, private keys, JWTs, database URLs, seed phrases, emails and more) before any tool sees the context |
+| Rank | Scores each capability on task fit, trust, success rate, safety, price and permission count |
+| Gate | Requires human approval for write, wallet, external-message and unverified-tool actions |
+| Pay | Blocks paid capabilities until an x402 payment is verified |
+| Execute and record | Runs the capability on the redacted input, then logs the transaction and a reputation event |
+
+## At a glance
+
+- TypeScript end to end: Express API, React and Vite dashboard
+- About 4,350 lines of application code and 37 automated tests (Vitest), all passing
+- 20 API routes covering buyer, seller, approval, payment, proof and reputation flows
+- 7 seeded capabilities across low, medium and high risk levels
+- Works offline: no API key or wallet is needed to run the demo
+
+## How it works
+
+```mermaid
+flowchart LR
+  A[Agent or human request] --> B[Task analyzer]
+  B --> C[Context sanitizer]
+  C --> D[Ranker and sequencer]
+  D --> E{Guardrails}
+  E -- needs approval --> F[Human approval]
+  E -- allowed --> G[x402 payment gate]
+  F --> G
+  G --> H[Capability executor]
+  H --> I[Transaction and reputation log]
+```
+
+Main modules, all in `src/services/`:
+
+- `taskAnalyzer`: task type, budget and risk classification (Anthropic SDK, deterministic fallback)
+- `contextSanitizer`: pattern-based secret redaction with a safe sharing preview
+- `capabilityRanker` and `capabilitySequencer`: weighted scoring and ordering of capabilities
+- `guardrails`: approval policy for risky actions
+- `paymentGate` and `paymentAdapter`: transaction state and x402 order handling
+- `executor`: runs capabilities on sanitized input
+- `reputationLogger`: outcome tracking per capability
+- `telegramBridge`: optional chat interface to the same command handler
+
+## Run it locally
+
+Requires Node.js 20.19 or newer.
+
+```bash
+git clone https://github.com/PATELOM925/openclaw-hack-ttw26.git
+cd openclaw-hack-ttw26
+npm install
+cp .env.example .env        # optional; the demo runs without keys
+
+npm run dev                 # API on http://localhost:3000
+npm run dev:web             # dashboard on http://localhost:5173
+```
+
+Set `ENABLE_MOCK_X402=true` in `.env` to settle payments locally during a demo.
+
+Dashboard routes:
+
+- `/` broker workflow: task intake, payment, execution, transactions, reputation
+- `/buy` buyer-agent workflow: context analysis, recommendation, purchase, execution
+- `/sell` seller marketplace: listed capabilities and provider submissions
+
+## Tests
+
+```bash
+npm run validate            # type-check build, then all tests
+```
+
+The 37 tests cover the API routes, the broker services (ranking, redaction, guardrails, payment gate, proof status) and the Telegram bridge.
+
+## Demo
+
+- Recording: [`docs/demo-recordings/clawcompass-transactions-qa-2026-05-26.webm`](docs/demo-recordings/clawcompass-transactions-qa-2026-05-26.webm)
+- Judge deck: [`docs/presentations/clawcompass_final_judge_demo.pptx`](docs/presentations/clawcompass_final_judge_demo.pptx)
+- Architecture notes: [`docs/hackathon/clawcompass/ARCHITECTURE.md`](docs/hackathon/clawcompass/ARCHITECTURE.md)
+
+## Status and limits
+
+This is a hackathon MVP that runs locally.
+
+- Payments in the demo use mock settlement. The real x402 path is wired through `goatx402-sdk-server` and needs merchant credentials and a funded wallet.
+- On-chain identity (ERC-8004) and mainnet registration stay behind explicit approval gates and were not completed end to end.
+- Data is seeded and held in memory; there is no database.
+- ClawCompass works beside OpenClaw and ClawUp. It does not modify the OpenClaw runtime.
 
 ## Team
-| Name | Role |
-|--------|--------|
-| Om Patel | AI/ML Lead, Full-Stack |
-| Awais | Data Engineering, Backend |
-| Abhinav | Backend / Systems |
-
-## Project
-Selected idea: **ClawCompass**, a paid capability broker for autonomous agents.
-
-ClawCompass lets a requesting agent describe its task and safe context, then analyzes which skill, MCP, hook, plugin, rule, or sub-agent is needed. It recommends and sequences the right capability, redacts sensitive context, buys low-risk capabilities through x402 on behalf of the requester, sells listed capabilities as the marketplace broker, executes after verified payment, and records reputation.
-
-The primary demo capability is **ClawUp SetupPilot**, focused on the lived onboarding pain around ClawUp, Telegram pairing, ERC-8004, x402, wallet readiness, and submission proof.
-
-## Planning Scaffold
-- Project instructions: [`AGENTS.md`](AGENTS.md)
-- Durable context: [`memory.md`](memory.md)
-- Work graph: [`docs/codex/work/WORK-GRAPH.md`](docs/codex/work/WORK-GRAPH.md)
-- Idea intake: [`docs/hackathon/IDEA-INTAKE.md`](docs/hackathon/IDEA-INTAKE.md)
-- Build runbook: [`docs/hackathon/BUILD-RUNBOOK.md`](docs/hackathon/BUILD-RUNBOOK.md)
-- Demo and submission guide: [`docs/hackathon/DEMO-SUBMISSION.md`](docs/hackathon/DEMO-SUBMISSION.md)
-- ClawCompass hub: [`docs/hackathon/clawcompass/README.md`](docs/hackathon/clawcompass/README.md)
-- Custom ClawUp skill specs: [`docs/clawup-skills/`](docs/clawup-skills/)
-
-## Local Backend
-
-```bash
-npm install
-npm run dev
-```
-
-The API listens on `http://localhost:3000` by default. Useful demo endpoints:
-
-- `GET /health`
-- `GET /api/help`
-- `POST /api/ask`
-- `GET /api/marketplace`
-- `GET /api/tool/pitchhawk`
-- `GET /api/tool/setuppilot`
-- `POST /api/buy`
-- `POST /api/use/pitchhawk`
-- `POST /api/use/setuppilot`
-- `POST /api/approve/:transactionId`
-- `POST /api/execute/pitchhawk`
-- `POST /api/execute/setuppilot`
-- `POST /api/register-tool`
-- `POST /api/command`
-- `GET /api/security`
-- `GET /api/transactions`
-- `GET /api/reputation/setuppilot`
-- `GET /api/proof`
-- `GET /api/payment/:transactionId/status`
-- `POST /api/reputation/:id/write-onchain`
-
-Local development can use `ENABLE_MOCK_X402=true` to unlock `/api/demo-settle/:transactionId`.
-Keep it disabled for final demo evidence. Real paid execution uses the `goatx402-sdk-server`
-adapter when merchant credentials and a payer wallet are available in untracked `.env`.
-
-## Web App
-
-```bash
-npm run dev:web
-```
-
-The browser app runs through Vite, defaults to `http://localhost:5173`, and calls the API at
-`http://localhost:3000`. Set `VITE_API_BASE_URL` if the API runs somewhere else.
-
-Routes:
-- `/buy`: buyer-agent workflow for context analysis, tool recommendation, x402 purchase intent, mock settlement, and execution.
-- `/sell`: seller marketplace for listed paid capabilities and pending provider submissions.
-- `/`: broker workflow for task intake, x402 payment, execution, transactions, and reputation.
-
-Validation:
-
-```bash
-npm run validate
-npm run build:web
-npm audit --audit-level=moderate
-```
-
-Real ClawUp, wallet, x402 merchant, and ERC-8004 actions remain external gated steps. Put real credentials only in untracked `.env`, never in repo docs.
-Sanitized public details extracted from the ClawUp environment document are tracked in
-[`docs/hackathon/clawcompass/EXTERNAL-PROOF-INTAKE.md`](docs/hackathon/clawcompass/EXTERNAL-PROOF-INTAKE.md).
-
-## Telegram Runtime
-
-The official submission channel is still ClawUp-paired Telegram. The local server also includes an optional Telegram bridge that routes messages into the same `/api/command` handler:
-
-```bash
-TELEGRAM_BOT_ENABLED=true TELEGRAM_BOT_TOKEN=<rotated-token> npm run dev
-```
-
-Use only a rotated runtime token from an untracked environment. The bridge is disabled by default and should not be used as proof of ClawUp pairing.
-
-## Brief And Plan
-
-- Source-of-truth brief: `/Users/shreyapatel/Projects/zzz project docs/GOAT Hack/CODEX_IMPLEMENTATION_BRIEF_CLAWCOMPASS.md`
-- Saved implementation plan: [`docs/hackathon/clawcompass/CODEX_IMPLEMENTATION_PLAN_CLAWCOMPASS.md`](docs/hackathon/clawcompass/CODEX_IMPLEMENTATION_PLAN_CLAWCOMPASS.md)
-- Source snapshot: [`docs/hackathon/clawcompass/SOURCE-OF-TRUTH.md`](docs/hackathon/clawcompass/SOURCE-OF-TRUTH.md)
-- External proof intake: [`docs/hackathon/clawcompass/EXTERNAL-PROOF-INTAKE.md`](docs/hackathon/clawcompass/EXTERNAL-PROOF-INTAKE.md)
-- Judge demo deck: [`docs/presentations/clawcompass_judge_full_demo_stage.pptx`](docs/presentations/clawcompass_judge_full_demo_stage.pptx)
-- Graphical demo deck copy: [`docs/presentations/clawcompass_stage_graphical_demo.pptx`](docs/presentations/clawcompass_stage_graphical_demo.pptx)
-- Transaction QA recording: [`docs/demo-recordings/clawcompass-transactions-qa-2026-05-26.webm`](docs/demo-recordings/clawcompass-transactions-qa-2026-05-26.webm)
-
-## Action Items
-- [ ] Review OpenClaw's required frameworks and documentation
-- [x] Identify compatible project ideas within host constraints
-- [ ] Finalize roles per team member
-- [ ] Build and demo
-
-## Tools
-- OpenClaw host framework(s) (primary constraint)
-- Claude Code Pro
-- Cursor Pro
-- Python / FastAPI
-- Lovable (UI)
-
-## Status
-- [ ] Confirm attendance
-- [x] Finalize project idea using the idea intake workflow
-- [x] Build local MVP
-- [x] Add full web app for broker workflow, proof, security, transactions, and reputation
-- [ ] Complete external ClawUp, x402, wallet, and ERC-8004 proof
-- [ ] Demo
-
-## Next Steps
-1. Verify the ClawUp agent and Telegram pairing after explicit user action
-2. Rotate or securely load exposed wallet/x402/Telegram credentials outside tracked files
-3. Confirm wallet funds, run real x402, register ERC-8004, then rehearse and submit with public proof visible
+Om Patel led the design and build of the broker core, API, dashboard and tests, working with Awais and Abhinav Singh at the hackathon.
