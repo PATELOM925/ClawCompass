@@ -4,6 +4,8 @@
 
 Built at the OpenClaw Hack (Toronto Tech Week), 26 May 2026, Toronto Metropolitan University.
 
+**Live demo:** [iampatelom.com/demos/clawcompass](https://iampatelom.com/demos/clawcompass) runs this repo's ranking, redaction and guardrail code in your browser. No sign-up, no API calls.
+
 ## Why it exists
 
 Agent builders lose time choosing and trusting tools. The number of skills, plugins, MCP servers and sub-agents keeps growing, and an agent that picks the wrong one can leak a secret or spend money without permission. ClawCompass puts one broker between the agent and its tools.
